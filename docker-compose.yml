@@ -1,0 +1,110 @@
+services:
+  pgiceberg:
+    build: .
+    image: pgiceberg:latest
+    entrypoint: ["./pgiceberg"]
+    command: ["module"]
+    volumes:
+      - ./config:/config:ro
+    secrets:
+      - source: postgres_username
+        target: postgres/username
+      - source: postgres_password
+        target: postgres/password
+      - source: postgres_database
+        target: postgres/database
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 4G
+        reservations:
+          cpus: "0.5"
+          memory: 1G
+  db:
+    build:
+      context: ./pg
+    image: pg-replication:latest
+    shm_size: 128mb
+    environment:
+      POSTGRES_USER_FILE: /run/secrets/postgres/username
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres/password
+      POSTGRES_DB_FILE: /run/secrets/postgres/database
+    secrets:
+      - source: postgres_username
+        target: postgres/username
+      - source: postgres_password
+        target: postgres/password
+      - source: postgres_database
+        target: postgres/database
+    command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf"]
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg:/var/lib/postgresql
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - psql -U "$$(cat /run/secrets/postgres/username)" -d "$$(cat /run/secrets/postgres/database)" -c 'SELECT 1' || exit 1
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+  pgadmin:
+    image: dpage/pgadmin4:9.18
+    ports:
+      - 5050:80
+    environment:
+      PGADMIN_DEFAULT_EMAIL: demo@example.com
+      PGADMIN_DEFAULT_PASSWORD: secret
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+      PGADMIN_SERVER_JSON_FILE: /var/lib/pgadmin/servers.json
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        username="$$(cat /run/secrets/postgres/username)"
+        password="$$(cat /run/secrets/postgres/password)"
+        database="$$(cat /run/secrets/postgres/database)"
+        umask 077
+        printf 'db:5432:*:%s:%s\n' "$$username" "$$password" > /var/lib/pgadmin/pgpass
+        cat > /var/lib/pgadmin/servers.json <<EOF
+        {
+          "Servers": {
+            "1": {
+              "Name": "Local Postgres",
+              "Group": "Servers",
+              "Host": "db",
+              "Port": 5432,
+              "MaintenanceDB": "$$database",
+              "Username": "$$username",
+              "PassFile": "/var/lib/pgadmin/pgpass"
+            }
+          }
+        }
+        EOF
+        exec /entrypoint.sh
+    secrets:
+      - source: postgres_username
+        target: postgres/username
+      - source: postgres_password
+        target: postgres/password
+      - source: postgres_database
+        target: postgres/database
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pg:
+
+secrets:
+  postgres_username:
+    file: ./secrets/postgres/username
+  postgres_password:
+    file: ./secrets/postgres/password
+  postgres_database:
+    file: ./secrets/postgres/database
