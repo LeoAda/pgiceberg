@@ -497,3 +497,31 @@ impl PgOutput {
         }
     }
 }
+
+
+
+#[derive(Debug)]
+pub struct Transaction {
+    pub begin: Begin,
+    pub changes: Vec<PgOutput>,
+    pub commit: Commit,
+}
+impl Transaction {
+    pub fn from_messages(msgs: Vec<PgOutput>) -> Result<Transaction, String> {
+        let mut it = msgs.into_iter();
+
+        let begin = match it.next() {
+            Some(PgOutput::Begin(b)) => b,
+            other => return Err(format!("expected Begin first, got {other:?}")),
+        };
+
+        let mut changes: Vec<PgOutput> = it.collect();
+
+        let commit = match changes.pop() {
+            Some(PgOutput::Commit(c)) => c,
+            other => return Err(format!("expected Commit last, got {other:?}")),
+        };
+
+        Ok(Transaction { begin, changes, commit })
+    }
+}
