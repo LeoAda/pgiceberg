@@ -1,8 +1,8 @@
 services:
-  pgiceberg:
+  pgwal2parquet:
     build: .
-    image: pgiceberg:latest
-    entrypoint: ["./pgiceberg"]
+    image: pgwal2parquet:latest
+    entrypoint: ["./pgwal2parquet"]
     command: ["module"]
     volumes:
       - ./config:/config:ro

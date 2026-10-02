@@ -11,4 +11,4 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certifi
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src/app
-COPY --from=builder /usr/src/app/target/release/pgiceberg ./pgiceberg
+COPY --from=builder /usr/src/app/target/release/pgwal2parquet ./pgwal2parquet

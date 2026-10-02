@@ -1,6 +1,6 @@
 use clap::{Parser};
-use pgiceberg::config::Config;
-use pgiceberg::service::peek_changes;
+use pgwal2parquet::config::Config;
+use pgwal2parquet::service::peek_changes;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 use sqlx::postgres::PgPoolOptions;
